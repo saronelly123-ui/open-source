@@ -15,7 +15,7 @@ import {
   RefreshCw,
 } from 'lucide-react'
 
-const recentScans = [
+const sampleScans = [
   {
     repository: 'payments-core-api',
     branch: 'main',
@@ -63,7 +63,7 @@ function StatCard({ title, value, description, icon: Icon, color }) {
         </div>
       </div>
 
-      <h2 className="mt-5 text-4xl font-bold tracking-tight text-white">
+      <h2 className="mt-5 break-words text-4xl font-bold tracking-tight text-white">
         {value}
       </h2>
 
@@ -75,7 +75,90 @@ function StatCard({ title, value, description, icon: Icon, color }) {
   )
 }
 
-function Dashboard() {
+function Dashboard({ latestScan }) {
+  const hasScan = Boolean(latestScan)
+
+  const vulnerabilityCount =
+    typeof latestScan?.vulnerabilities === 'number'
+      ? latestScan.vulnerabilities
+      : Array.isArray(latestScan?.vulnerabilities)
+        ? latestScan.vulnerabilities.length
+        : Array.isArray(latestScan?.vulnerabilityDetails)
+          ? latestScan.vulnerabilityDetails.length
+          : 0
+
+  const packageCount = latestScan?.packages ?? 0
+
+  const repository =
+    latestScan?.repository || 'payments-core-api'
+
+  const branch = latestScan?.branch || 'main'
+
+  const scanDate =
+    latestScan?.date ||
+    latestScan?.timestamp ||
+    latestScan?.createdAt ||
+    'Not available'
+
+  const scanStatus = latestScan?.status || 'Not started'
+
+  const severityCounts = {
+    critical: latestScan?.critical ?? 0,
+    high: latestScan?.high ?? 0,
+    medium: latestScan?.medium ?? 0,
+    low: latestScan?.low ?? 0,
+  }
+
+  const stats = [
+    {
+      title: 'Total Scans',
+      value: hasScan ? '1' : '1,420',
+      description: hasScan
+        ? 'Latest scan completed'
+        : 'Sample dashboard data',
+      icon: Scan,
+      color: 'bg-blue-500/20 text-blue-400',
+    },
+    {
+      title: 'Total Packages',
+      value: hasScan ? packageCount.toLocaleString() : '8,540',
+      description: hasScan
+        ? 'Packages in latest repository scan'
+        : 'Sample package count',
+      icon: Package,
+      color: 'bg-purple-500/20 text-purple-400',
+    },
+    {
+      title: 'Vulnerabilities',
+      value: hasScan ? vulnerabilityCount.toLocaleString() : '47',
+      description: hasScan
+        ? 'Findings returned by the scanner'
+        : 'Sample vulnerability count',
+      icon: ShieldAlert,
+      color: 'bg-red-500/20 text-red-400',
+    },
+    {
+      title: 'License Issues',
+      value: 'Not assessed',
+      description: 'License scanning is not connected',
+      icon: Scale,
+      color: 'bg-orange-500/20 text-orange-400',
+    },
+  ]
+
+  const recentScans = hasScan
+    ? [
+        {
+          repository,
+          branch,
+          date: scanDate,
+          packages: packageCount,
+          findings: vulnerabilityCount,
+          status: scanStatus,
+        },
+      ]
+    : sampleScans
+
   return (
     <div className="space-y-8 text-slate-200">
 
@@ -91,45 +174,58 @@ function Dashboard() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+        {stats.map((stat) => (
+          <StatCard
+            key={stat.title}
+            {...stat}
+          />
+        ))}
+      </div>
 
-        <StatCard
-          title="Total Scans"
-          value="1,420"
-          description="12% increase this month"
-          icon={Scan}
-          color="bg-blue-500/20 text-blue-400"
-        />
+      {/* Severity summary */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {[
+          {
+            title: 'Critical',
+            value: severityCounts.critical,
+            color: 'text-rose-400',
+          },
+          {
+            title: 'High',
+            value: severityCounts.high,
+            color: 'text-orange-400',
+          },
+          {
+            title: 'Medium',
+            value: severityCounts.medium,
+            color: 'text-amber-400',
+          },
+          {
+            title: 'Low',
+            value: severityCounts.low,
+            color: 'text-cyan-400',
+          },
+        ].map((item) => (
+          <div
+            key={item.title}
+            className="rounded-xl border border-[#303640] bg-[#1C2028] p-4"
+          >
+            <p className="text-xs text-slate-500">
+              {item.title} Vulnerabilities
+            </p>
 
-        <StatCard
-          title="Total Packages"
-          value="8,540"
-          description="Across all repositories"
-          icon={Package}
-          color="bg-purple-500/20 text-purple-400"
-        />
-
-        <StatCard
-          title="Vulnerabilities"
-          value="47"
-          description="8 new findings detected"
-          icon={ShieldAlert}
-          color="bg-red-500/20 text-red-400"
-        />
-
-        <StatCard
-          title="License Issues"
-          value="12"
-          description="Require review"
-          icon={Scale}
-          color="bg-orange-500/20 text-orange-400"
-        />
-
+            <p className={`mt-2 text-2xl font-bold ${item.color}`}>
+              {item.value}
+            </p>
+          </div>
+        ))}
       </div>
 
       {/* Repository and security summary */}
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
 
+        {/* Active Repository */}
         <div className="rounded-xl border border-[#303640] bg-[#1C2028] p-5 xl:col-span-2">
 
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
@@ -137,14 +233,22 @@ function Dashboard() {
               <h2 className="font-semibold text-white">
                 Active Repository
               </h2>
+
               <p className="mt-1 text-xs text-slate-500">
-                Current security monitoring target
+                Latest security monitoring target
               </p>
             </div>
 
-            <span className="flex w-fit items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-400">
-              <span className="h-2 w-2 rounded-full bg-emerald-400" />
-              Monitoring Active
+            <span className={`flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${
+              hasScan
+                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                : 'border-amber-500/30 bg-amber-500/10 text-amber-400'
+            }`}>
+              <span className={`h-2 w-2 rounded-full ${
+                hasScan ? 'bg-emerald-400' : 'bg-amber-400'
+              }`} />
+
+              {hasScan ? 'Scan Available' : 'Sample Repository'}
             </span>
           </div>
 
@@ -155,11 +259,12 @@ function Dashboard() {
 
             <div className="min-w-0 flex-1">
               <p className="break-all font-semibold text-slate-100">
-                org/payments-core-api
+                {repository}
               </p>
+
               <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
                 <GitBranch size={13} />
-                main branch
+                {branch}
               </p>
             </div>
 
@@ -173,18 +278,33 @@ function Dashboard() {
 
           <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="rounded-lg bg-[#181C24] p-4">
-              <p className="text-xs text-slate-500">Dependencies</p>
-              <p className="mt-2 text-2xl font-bold text-white">245</p>
+              <p className="text-xs text-slate-500">
+                Total Packages
+              </p>
+
+              <p className="mt-2 text-2xl font-bold text-white">
+                {hasScan ? packageCount.toLocaleString() : '245'}
+              </p>
             </div>
 
             <div className="rounded-lg bg-[#181C24] p-4">
-              <p className="text-xs text-slate-500">Vulnerabilities</p>
-              <p className="mt-2 text-2xl font-bold text-red-400">15</p>
+              <p className="text-xs text-slate-500">
+                Vulnerabilities
+              </p>
+
+              <p className="mt-2 text-2xl font-bold text-red-400">
+                {hasScan ? vulnerabilityCount : '15'}
+              </p>
             </div>
 
             <div className="rounded-lg bg-[#181C24] p-4">
-              <p className="text-xs text-slate-500">License Issues</p>
-              <p className="mt-2 text-2xl font-bold text-orange-400">4</p>
+              <p className="text-xs text-slate-500">
+                License Issues
+              </p>
+
+              <p className="mt-2 text-lg font-bold text-orange-400">
+                Not assessed
+              </p>
             </div>
           </div>
         </div>
@@ -195,34 +315,63 @@ function Dashboard() {
             <h2 className="font-semibold text-white">
               Scanner Engine
             </h2>
+
             <Activity size={20} className="text-cyan-400" />
           </div>
 
           <div className="mt-5 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-500/10">
-              <CheckCircle2 size={23} className="text-emerald-400" />
+            <div className={`flex h-11 w-11 items-center justify-center rounded-full ${
+              hasScan ? 'bg-emerald-500/10' : 'bg-amber-500/10'
+            }`}>
+              {hasScan ? (
+                <CheckCircle2 size={23} className="text-emerald-400" />
+              ) : (
+                <Clock3 size={23} className="text-amber-400" />
+              )}
             </div>
 
             <div>
-              <p className="font-semibold text-emerald-400">Operational</p>
-              <p className="text-xs text-slate-500">All systems running</p>
+              <p className={`font-semibold ${
+                hasScan ? 'text-emerald-400' : 'text-amber-400'
+              }`}>
+                {hasScan ? 'Operational' : 'Waiting'}
+              </p>
+
+              <p className="text-xs text-slate-500">
+                {hasScan ? 'Latest scan finished' : 'Run a repository scan'}
+              </p>
             </div>
           </div>
 
           <div className="mt-6 space-y-4 border-t border-[#303640] pt-5">
             <div className="flex justify-between gap-2 text-sm">
               <span className="text-slate-500">Engine</span>
-              <span className="text-slate-200">DepShield v2.4</span>
+              <span className="text-slate-200">
+                {latestScan?.scanner || 'DepShield'}
+              </span>
             </div>
 
             <div className="flex justify-between gap-2 text-sm">
-              <span className="text-slate-500">Last Sync</span>
-              <span className="text-slate-200">5 min ago</span>
+              <span className="text-slate-500">Last Scan</span>
+              <span className="text-slate-200">
+                {scanDate}
+              </span>
             </div>
 
             <div className="flex justify-between gap-2 text-sm">
-              <span className="text-slate-500">Scan Mode</span>
-              <span className="text-cyan-400">Automated</span>
+              <span className="text-slate-500">Scan Status</span>
+              <span className="text-cyan-400">
+                {scanStatus}
+              </span>
+            </div>
+
+            <div className="flex justify-between gap-2 text-sm">
+              <span className="text-slate-500">Duration</span>
+              <span className="text-slate-200">
+                {latestScan?.duration != null
+                  ? `${latestScan.duration} sec`
+                  : 'Not available'}
+              </span>
             </div>
           </div>
         </div>
@@ -236,8 +385,11 @@ function Dashboard() {
             <h2 className="font-semibold text-white">
               Recent Scan Activity
             </h2>
+
             <p className="mt-1 text-xs text-slate-500">
-              Latest repository security scan records
+              {hasScan
+                ? 'Latest repository security scan record'
+                : 'Sample repository security scan records'}
             </p>
           </div>
 
@@ -263,11 +415,15 @@ function Dashboard() {
 
             <tbody className="divide-y divide-[#303640]">
               {recentScans.map((scan) => (
-                <tr key={scan.repository} className="transition hover:bg-[#262A33]">
+                <tr
+                  key={`${scan.repository}-${scan.date}`}
+                  className="transition hover:bg-[#262A33]"
+                >
                   <td className="px-5 py-4">
-                    <p className="font-semibold text-slate-200">
+                    <p className="break-all font-semibold text-slate-200">
                       {scan.repository}
                     </p>
+
                     <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
                       <GitBranch size={12} />
                       {scan.branch}
@@ -302,7 +458,7 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Policy Gate */}
+      {/* Policy Gate and Dependency Monitoring */}
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
 
         <div className="rounded-xl border border-[#303640] bg-[#1C2028] p-5">
@@ -310,8 +466,12 @@ function Dashboard() {
             <div className="rounded-lg bg-emerald-500/10 p-3">
               <ShieldCheck size={22} className="text-emerald-400" />
             </div>
+
             <div>
-              <h2 className="font-semibold text-white">Policy Gate</h2>
+              <h2 className="font-semibold text-white">
+                Policy Gate
+              </h2>
+
               <p className="mt-1 text-xs text-slate-500">
                 Repository security policy
               </p>
@@ -319,18 +479,19 @@ function Dashboard() {
           </div>
 
           <div className="mt-5 flex items-center justify-between">
-            <span className="text-sm text-slate-400">Policy Status</span>
-            <span className="text-sm font-semibold text-amber-400">
-              Review Required
+            <span className="text-sm text-slate-400">
+              Policy Status
+            </span>
+
+            <span className="text-sm font-semibold text-slate-400">
+              Not assessed
             </span>
           </div>
 
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#303640]">
-            <div className="h-full w-[76%] rounded-full bg-cyan-500" />
-          </div>
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#303640]" />
 
           <p className="mt-3 text-xs text-slate-500">
-            Sample compliance score: 76%
+            Policy compliance scoring is not connected to the current scanner.
           </p>
         </div>
 
@@ -339,12 +500,14 @@ function Dashboard() {
             <div className="rounded-lg bg-cyan-500/10 p-3">
               <RefreshCw size={22} className="text-cyan-400" />
             </div>
+
             <div>
               <h2 className="font-semibold text-white">
                 Dependency Monitoring
               </h2>
+
               <p className="mt-1 text-xs text-slate-500">
-                Continuous package monitoring
+                Repository scan monitoring
               </p>
             </div>
           </div>
@@ -352,32 +515,39 @@ function Dashboard() {
           <div className="mt-5 space-y-3">
             <div className="flex items-center justify-between text-sm">
               <span className="text-slate-400">Monitoring</span>
-              <span className="text-emerald-400">Active</span>
+
+              <span className={hasScan ? 'text-emerald-400' : 'text-amber-400'}>
+                {hasScan ? 'Scan completed' : 'Not started'}
+              </span>
             </div>
 
             <div className="flex items-center justify-between text-sm">
               <span className="text-slate-400">Last update</span>
-              <span className="text-slate-300">5 minutes ago</span>
+
+              <span className="text-slate-300">
+                {scanDate}
+              </span>
             </div>
 
             <div className="flex items-center justify-between text-sm">
               <span className="text-slate-400">Next scheduled scan</span>
-              <span className="flex items-center gap-1 text-slate-300">
-                <Clock3 size={14} />
-                In 55 minutes
+
+              <span className="text-slate-300">
+                Not configured
               </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Sample data note */}
-      <div className="flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 text-xs leading-5 text-amber-200/80">
-        <AlertTriangle size={15} className="mt-0.5 shrink-0 text-amber-400" />
+      {/* Information note */}
+      <div className="flex items-start gap-2 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-4 text-xs leading-5 text-cyan-200/80">
+        <AlertTriangle size={15} className="mt-0.5 shrink-0 text-cyan-400" />
+
         <p>
-          Dashboard figures and scan records are sample frontend data.
-          They will be replaced with live repository and scan information
-          when the backend API is connected.
+          {hasScan
+            ? 'Dashboard information is based on the latest scan performed in this session. License analysis, policy compliance and scheduled monitoring are not yet connected.'
+            : 'Some dashboard figures and scan records are sample frontend data. They will be replaced with live scan information when available.'}
         </p>
       </div>
 

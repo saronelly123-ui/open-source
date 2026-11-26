@@ -1,5 +1,8 @@
 
 import { useMemo, useState } from 'react'
+import ScanProjectModal from '../components/ScanProjectModal'
+import DependencyTree from '../components/dependencies/DependencyTree'
+
 import {
   Search,
   Download,
@@ -30,6 +33,7 @@ const initialScans = [
     critical: 1,
     high: 1,
     medium: 1,
+    low: 0,
     status: 'Completed',
     commit: 'a83f92c',
     scanner: 'DepShield Engine v2.4',
@@ -46,6 +50,7 @@ const initialScans = [
     critical: 0,
     high: 0,
     medium: 0,
+    low: 0,
     status: 'Completed',
     commit: 'b72d10e',
     scanner: 'DepShield Engine v2.4',
@@ -62,6 +67,7 @@ const initialScans = [
     critical: 2,
     high: 3,
     medium: 3,
+    low: 0,
     status: 'Blocked',
     commit: 'c91e45a',
     scanner: 'DepShield Engine v2.4',
@@ -78,6 +84,7 @@ const initialScans = [
     critical: 0,
     high: 1,
     medium: 1,
+    low: 0,
     status: 'Completed',
     commit: 'd34a81b',
     scanner: 'DepShield Engine v2.4',
@@ -94,18 +101,20 @@ const initialScans = [
     critical: 0,
     high: 0,
     medium: 0,
+    low: 0,
     status: 'Failed',
     commit: 'e21c90d',
     scanner: 'DepShield Engine v2.4',
   },
 ]
 
-function ScanHistory() {
+function ScanHistory({ onScanSaved }) {
   const [scans, setScans] = useState(initialScans)
   const [selectedScan, setSelectedScan] = useState(initialScans[0])
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
   const [activeTab, setActiveTab] = useState('All Scans')
+  const [showScanModal, setShowScanModal] = useState(false)
 
   const filteredScans = useMemo(() => {
     return scans.filter((scan) => {
@@ -133,6 +142,32 @@ function ScanHistory() {
   const failedScans = scans.filter(
     (scan) => ['Failed', 'Blocked'].includes(scan.status)
   ).length
+
+  const averageDuration = useMemo(() => {
+    const durations = scans
+      .map((scan) => {
+        const duration = scan.duration || ''
+
+        const minutes = duration.match(/(\d+)\s*min/)
+        const seconds = duration.match(/(\d+)\s*sec/)
+
+        if (!minutes && !seconds) return null
+
+        return (
+          (minutes ? Number(minutes[1]) * 60 : 0) +
+          (seconds ? Number(seconds[1]) : 0)
+        )
+      })
+      .filter((duration) => duration !== null)
+
+    if (!durations.length) return '—'
+
+    const average =
+      durations.reduce((total, duration) => total + duration, 0) /
+      durations.length
+
+    return `${Math.round(average)}s`
+  }, [scans])
 
   const exportCSV = () => {
     const headers = [
@@ -167,16 +202,62 @@ function ScanHistory() {
 
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
+
     link.href = url
     link.download = 'depshield-scan-history.csv'
     link.click()
+
     URL.revokeObjectURL(url)
   }
 
   const triggerScan = () => {
-    alert(
-      'Scan request is ready. It will be connected to the backend scan API.'
-    )
+    setShowScanModal(true)
+  }
+
+  // Save a completed scan and share it with App.jsx.
+  const handleScanComplete = (project) => {
+    const now = new Date()
+
+    const newScan = {
+      id: `SCN-${Date.now()}`,
+      repository: project.repository,
+      branch: project.branch || '—',
+      date: now.toLocaleDateString('en-US', {
+        month: 'short',
+        day: '2-digit',
+        year: 'numeric',
+      }),
+      time: now.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      duration: project.duration,
+      packages: project.packages,
+      vulnerabilities: project.vulnerabilityCount,
+      critical: project.critical,
+      high: project.high,
+      medium: project.medium,
+      low: project.low,
+      status: project.status,
+      commit: project.commit,
+      scanner: project.scanner,
+      source: project.source,
+      dependencies: project.dependencies,
+      directDependencies: project.directDependencies,
+      transitiveDependencies: project.transitiveDependencies,
+      vulnerabilityDetails: project.vulnerabilities || [],
+      lockfile: project.lockfile,
+    }
+
+    setScans((previousScans) => [newScan, ...previousScans])
+    setSelectedScan(newScan)
+
+    onScanSaved?.(newScan)
+
+    setShowScanModal(false)
+    setSearch('')
+    setStatusFilter('All')
+    setActiveTab('All Scans')
   }
 
   const statusStyle = (status) => {
@@ -214,6 +295,7 @@ function ScanHistory() {
 
         <div className="flex flex-wrap gap-3">
           <button
+            type="button"
             onClick={exportCSV}
             className="flex items-center gap-2 rounded-lg border border-[#303640] bg-[#1C2028] px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:border-cyan-500 hover:text-cyan-400"
           >
@@ -222,6 +304,7 @@ function ScanHistory() {
           </button>
 
           <button
+            type="button"
             onClick={triggerScan}
             className="flex items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-bold text-[#0A0E16] transition hover:bg-cyan-400"
           >
@@ -240,10 +323,10 @@ function ScanHistory() {
             <Activity size={19} className="text-cyan-400" />
           </div>
           <h2 className="mt-3 text-3xl font-bold text-slate-100">
-            1,420
+            {scans.length}
           </h2>
           <p className="mt-2 text-xs text-slate-500">
-            All recorded repository scans
+            Recorded repository scans
           </p>
         </div>
 
@@ -253,7 +336,7 @@ function ScanHistory() {
             <Clock3 size={19} className="text-cyan-400" />
           </div>
           <h2 className="mt-3 text-3xl font-bold text-slate-100">
-            42s
+            {averageDuration}
           </h2>
           <p className="mt-2 text-xs text-slate-500">
             Average execution time
@@ -269,7 +352,7 @@ function ScanHistory() {
             {failedScans}
           </h2>
           <p className="mt-2 text-xs text-slate-500">
-            In the displayed sample
+            Recorded failed or blocked scans
           </p>
         </div>
 
@@ -279,10 +362,10 @@ function ScanHistory() {
             <CalendarDays size={19} className="text-cyan-400" />
           </div>
           <h2 className="mt-3 text-2xl font-bold text-slate-100">
-            5m ago
+            {scans[0]?.time || '—'}
           </h2>
           <p className="mt-2 text-xs text-slate-500">
-            Latest scan activity
+            Latest recorded scan time
           </p>
         </div>
 
@@ -334,6 +417,7 @@ function ScanHistory() {
         <div className="flex flex-wrap gap-6 border-b border-[#303640] px-5">
           {['All Scans', 'Successful', 'Failed / Blocked'].map((tab) => (
             <button
+              type="button"
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`border-b-2 py-3 text-sm font-medium transition ${
@@ -347,12 +431,12 @@ function ScanHistory() {
           ))}
         </div>
 
+        {/* Table and scan inspector */}
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px]">
 
           {/* Table */}
           <div className="min-w-0 overflow-x-auto">
             <table className="w-full min-w-[750px] text-left text-sm">
-
               <thead className="bg-[#181C24] text-xs uppercase tracking-wider text-slate-500">
                 <tr>
                   <th className="px-5 py-4 font-semibold">Repository</th>
@@ -406,7 +490,7 @@ function ScanHistory() {
                         {scan.vulnerabilities}
                       </span>
                       <p className="mt-1 text-xs text-slate-500">
-                        {scan.critical} critical · {scan.high} high
+                        {scan.critical || 0} critical · {scan.high || 0} high
                       </p>
                     </td>
 
@@ -509,6 +593,15 @@ function ScanHistory() {
                         {selectedScan.commit}
                       </span>
                     </div>
+
+                    {selectedScan.source && (
+                      <div className="flex justify-between gap-3 text-sm">
+                        <span className="shrink-0 text-slate-500">Source</span>
+                        <span className="text-right text-slate-300">
+                          {selectedScan.source}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -521,21 +614,28 @@ function ScanHistory() {
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-slate-400">Critical</span>
                       <span className="font-mono text-red-400">
-                        {selectedScan.critical}
+                        {selectedScan.critical || 0}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-slate-400">High</span>
                       <span className="font-mono text-orange-400">
-                        {selectedScan.high}
+                        {selectedScan.high || 0}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-slate-400">Medium</span>
                       <span className="font-mono text-amber-400">
-                        {selectedScan.medium}
+                        {selectedScan.medium || 0}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-400">Low</span>
+                      <span className="font-mono text-slate-300">
+                        {selectedScan.low || 0}
                       </span>
                     </div>
                   </div>
@@ -551,8 +651,19 @@ function ScanHistory() {
                   </p>
                 </div>
 
+                {selectedScan.dependencies?.length > 0 && (
+                  <DependencyTree
+                    dependencies={selectedScan.dependencies}
+                    packageCount={selectedScan.packages}
+                    directCount={selectedScan.directDependencies}
+                    transitiveCount={selectedScan.transitiveDependencies}
+                    vulnerabilities={selectedScan.vulnerabilityDetails || []}
+                  />
+                )}
+
                 <button
-                  onClick={() => alert(`Details for ${selectedScan.id} will be connected to the backend.`)}
+                  type="button"
+                  onClick={() => alert(`Full scan: ${selectedScan.packages} packages checked; ${selectedScan.vulnerabilities} vulnerabilities found.`)}
                   className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#303640] bg-[#1C2028] px-4 py-3 text-sm font-semibold text-slate-300 transition hover:border-cyan-500 hover:text-cyan-400"
                 >
                   <Eye size={16} />
@@ -565,30 +676,32 @@ function ScanHistory() {
                 Select a scan record to inspect its details.
               </p>
             )}
-
           </aside>
         </div>
 
         <div className="flex flex-col justify-between gap-2 border-t border-[#303640] px-5 py-4 text-xs text-slate-500 sm:flex-row">
           <span>
-            Showing {filteredScans.length} of {scans.length} sample records
+            Showing {filteredScans.length} of {scans.length} scan records
           </span>
           <span>
-            {completedScans} completed scans in this sample
+            {completedScans} completed scans · {failedScans} failed or blocked
           </span>
         </div>
-
       </div>
 
-      <div className="flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 text-xs leading-5 text-amber-200/80">
-        <RefreshCw size={15} className="mt-0.5 shrink-0 text-amber-400" />
+      <div className="flex items-start gap-2 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-4 text-xs leading-5 text-cyan-100/80">
+        <RefreshCw size={15} className="mt-0.5 shrink-0 text-cyan-400" />
         <p>
-          These are sample frontend records for the design. The real scan
-          history, scan trigger and backend CSV export will be connected
-          when the backend API is ready.
+          New scans read public GitHub npm lock files and check package versions against OSV.dev. Existing history entries are sample records. Private repositories, ZIP uploads, and other package ecosystems are not supported by this frontend-only scanner yet.
         </p>
       </div>
 
+      {showScanModal && (
+        <ScanProjectModal
+          onClose={() => setShowScanModal(false)}
+          onScanComplete={handleScanComplete}
+        />
+      )}
     </div>
   )
 }

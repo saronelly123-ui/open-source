@@ -6,6 +6,7 @@ import Sidebar from './components/Sidebar'
 import Header from './components/Header'
 
 import Dashboard from './pages/Dashboard'
+import DependencyTree from './pages/DependencyTree'
 import ScanHistory from './pages/ScanHistory'
 import Vulnerabilities from './pages/Vulnerabilities'
 import Remediation from './pages/Remediation'
@@ -15,6 +16,7 @@ function App() {
   const [activePage, setActivePage] = useState('Overview')
   const [mobileOpen, setMobileOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [latestScan, setLatestScan] = useState(null)
 
   const closeMobileMenu = () => setMobileOpen(false)
 
@@ -27,11 +29,17 @@ function App() {
     if (!query) return
 
     if (
+      query.includes('dependency') ||
+      query.includes('dependencies') ||
+      query.includes('graph') ||
+      query.includes('tree')
+    ) {
+      setActivePage('Dependency Tree')
+    } else if (
       query.includes('cve') ||
       query.includes('vulnerability') ||
       query.includes('vulnerabilities') ||
-      query.includes('package') ||
-      query.includes('dependency')
+      query.includes('package')
     ) {
       setActivePage('Vulnerabilities')
     } else if (
@@ -64,13 +72,20 @@ function App() {
   const renderPage = () => {
     switch (activePage) {
       case 'Overview':
-        return <Dashboard />
+        return <Dashboard latestScan={latestScan} />
+
+      case 'Dependency Tree':
+        return <DependencyTree />
 
       case 'Scan History':
-        return <ScanHistory />
+        return (
+          <ScanHistory onScanSaved={setLatestScan} />
+        )
 
       case 'Vulnerabilities':
-        return <Vulnerabilities />
+        return (
+          <Vulnerabilities latestScan={latestScan} />
+        )
 
       case 'Remediation':
         return <Remediation />
@@ -105,7 +120,6 @@ function App() {
       />
 
       <div className="min-w-0 flex-1">
-
         {/* Mobile top bar */}
         <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-[#303640] bg-[#0A0E16] px-4 py-3 lg:hidden">
           <button
@@ -117,7 +131,9 @@ function App() {
           </button>
 
           <div>
-            <h1 className="font-bold text-slate-100">DepShield</h1>
+            <h1 className="font-bold text-slate-100">
+              DepShield
+            </h1>
             <p className="font-mono text-[10px] tracking-wider text-cyan-400">
               V2.4 CORE
             </p>
